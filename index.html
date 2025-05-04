@@ -83,7 +83,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>Kuş Sesleri Oynatıcı v2</h2>
+    <h2>Kuş Sesleri Oynatıcı v1</h2>
     <div class="section">
       <label>Ses Dosyası Yükle:</label>
       <input type="file" id="audio-file" accept="audio/*">
@@ -228,6 +228,11 @@
     stopBtn.addEventListener('click', () => {
       stopRequested = true;
       status.textContent = "Durduruluyor...";
+    });
+
+    // Safari ve Chrome kısıtlamalarını aşmak için ses çalmadan önce kullanıcı etkileşimi gereklidir
+    document.body.addEventListener('click', function() {
+      audioPlayer.play();
     });
   </script>
 </body>
