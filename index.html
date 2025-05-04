@@ -117,11 +117,10 @@
         <h1>Kuş Seslendirme Uygulaması</h1>
         
         <div class="record-section">
-            <h2>Ses Kaydetme</h2>
+            <h2>Ses Dosyası Yükleme</h2>
             <div class="controls">
-                <input type="text" id="recording-name" placeholder="Ses adı" value="Ses 1">
-                <button id="record" class="record">Kayıt Başlat (5 sn)</button>
-                <span id="recording-status"></span>
+                <input type="file" id="file-input" accept="audio/*">
+                <span id="file-status"></span>
             </div>
             <div id="recordings-list"></div>
         </div>
@@ -133,19 +132,19 @@
                     <select id="sound-select">
                         <option value="">Ses seçin</option>
                     </select>
-                    <input type="number" id="duration" min="1" max="60" value="5" placeholder="Dakika">
+                    <input type="number" id="duration" min="1" max="60" value="5" placeholder="Dk">
                     <span>dakika</span>
                     <button id="add-to-playlist">Listeye Ekle</button>
                 </div>
                 <div class="sequence-item">
                     <span>Sessiz süre: </span>
-                    <input type="number" id="silence-duration" min="0" max="120" value="10" placeholder="Dakika">
+                    <input type="number" id="silence-duration" min="0" max="120" value="30" placeholder="Dk">
                     <span>dakika</span>
                     <button id="add-silence">Sessizlik Ekle</button>
                 </div>
                 <div class="sequence-item">
                     <span>Toplam tekrar sayısı: </span>
-                    <input type="number" id="repeat-count" min="1" max="100" value="3">
+                    <input type="number" id="repeat-count" min="1" max="100" value="7">
                     <button id="start-sequence" class="play">Çalmayı Başlat</button>
                     <button id="stop-sequence">Durdur</button>
                 </div>
@@ -161,21 +160,15 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // Global değişkenler
-            let mediaRecorder;
-            let audioChunks = [];
             let recordings = [];
             let playlist = [];
             let isPlaying = false;
             let currentAudioIndex = 0;
             let currentRepeatCount = 0;
-            let currentAudio = null;
-            let silenceTimeout = null;
-
+            
             // DOM elementleri
-            const recordButton = document.getElementById('record');
-            const recordingStatus = document.getElementById('recording-status');
-            const recordingName = document.getElementById('recording-name');
-            const recordingsList = document.getElementById('recordings-list');
+            const fileInput = document.getElementById('file-input');
+            const fileStatus = document.getElementById('file-status');
             const soundSelect = document.getElementById('sound-select');
             const durationInput = document.getElementById('duration');
             const silenceDurationInput = document.getElementById('silence-duration');
@@ -186,73 +179,43 @@
             const stopSequenceButton = document.getElementById('stop-sequence');
             const playlistContainer = document.getElementById('playlist');
             const playerStatus = document.getElementById('player-status');
-
-            // Kayıt fonksiyonu
-            recordButton.addEventListener('click', () => {
-                if (mediaRecorder && mediaRecorder.state === 'recording') {
-                    return;
-                }
-
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(stream => {
-                        mediaRecorder = new MediaRecorder(stream);
-                        audioChunks = [];
-
-                        mediaRecorder.addEventListener('dataavailable', event => {
-                            audioChunks.push(event.data);
-                        });
-
-                        mediaRecorder.addEventListener('stop', () => {
-                            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                            const audioUrl = URL.createObjectURL(audioBlob);
-                            const name = recordingName.value || `Ses ${recordings.length + 1}`;
-
-                            recordings.push({
-                                id: Date.now(),
-                                name,
-                                url: audioUrl,
-                                blob: audioBlob
-                            });
-
-                            updateRecordingsList();
-                            updateSoundSelect();
-
-                            recordingStatus.textContent = 'Kayıt tamamlandı!';
-                            recordButton.disabled = false;
-                        });
-
-                        mediaRecorder.start();
-                        recordButton.disabled = true;
-                        recordingStatus.textContent = 'Kaydediliyor...';
-
-                        setTimeout(() => {
-                            if (mediaRecorder.state === 'recording') {
-                                mediaRecorder.stop();
-                            }
-                        }, 5000);
-                    })
-                    .catch(error => {
-                        console.error('Mikrofon erişimi hatası:', error);
-                        recordingStatus.textContent = 'Mikrofon erişimi reddedildi!';
+            
+            // Dosya yükleme işlemi
+            fileInput.addEventListener('change', () => {
+                const file = fileInput.files[0];
+                if (file && file.type.startsWith('audio/')) {
+                    const audioUrl = URL.createObjectURL(file);
+                    recordings.push({
+                        id: Date.now(),
+                        name: file.name,
+                        url: audioUrl,
+                        blob: file
                     });
+                    fileStatus.textContent = 'Dosya başarıyla yüklendi!';
+                    updateRecordingsList();
+                    updateSoundSelect();
+                } else {
+                    fileStatus.textContent = 'Geçerli bir ses dosyası seçin.';
+                }
             });
-
+            
             // Kayıt listesini güncelleme
             function updateRecordingsList() {
+                const recordingsList = document.getElementById('recordings-list');
                 recordingsList.innerHTML = '';
-
+                
                 recordings.forEach(recording => {
                     const audioItem = document.createElement('div');
                     audioItem.className = 'audio-item';
-
+                    
                     const audioLabel = document.createElement('div');
                     audioLabel.className = 'audio-label';
                     audioLabel.textContent = recording.name;
-
-                  const audio = document.createElement('audio');
+                    
+                    const audio = document.createElement('audio');
                     audio.controls = true;
                     audio.src = recording.url;
-
+                    
                     const deleteButton = document.createElement('button');
                     deleteButton.className = 'delete-btn';
                     deleteButton.textContent = 'Sil';
@@ -260,23 +223,23 @@
                         recordings = recordings.filter(r => r.id !== recording.id);
                         updateRecordingsList();
                         updateSoundSelect();
-
+                        
                         // Çalma listesinden de kaldır
                         playlist = playlist.filter(item => item.type !== 'sound' || item.id !== recording.id);
                         updatePlaylist();
                     });
-
+                    
                     audioItem.appendChild(audioLabel);
                     audioItem.appendChild(audio);
                     audioItem.appendChild(deleteButton);
                     recordingsList.appendChild(audioItem);
                 });
             }
-
+            
             // Ses seçimini güncelleme
             function updateSoundSelect() {
                 soundSelect.innerHTML = '<option value="">Ses seçin</option>';
-
+                
                 recordings.forEach(recording => {
                     const option = document.createElement('option');
                     option.value = recording.id;
