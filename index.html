@@ -2,74 +2,107 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Kuş Sesleri Oynatıcı</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
       font-family: Arial, sans-serif;
-      max-width: 600px;
-      margin: 20px auto;
-      padding: 20px;
+      margin: 0;
+      padding: 0;
       background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
     }
     h2 {
       text-align: center;
       color: #2c3e50;
+      margin-bottom: 20px;
     }
     .section {
       background: #fff;
-      padding: 15px;
-      margin-bottom: 20px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px #ccc;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    label, input, button {
-      display: block;
-      width: 100%;
+    label {
       margin-top: 10px;
+      display: block;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+    input[type="file"],
+    input[type="number"],
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
     }
     button {
-      padding: 10px;
       background-color: #27ae60;
       color: white;
       border: none;
-      border-radius: 5px;
+      font-weight: bold;
       cursor: pointer;
     }
     button:hover {
       background-color: #219150;
     }
+    #stop-btn {
+      background-color: #e74c3c;
+    }
+    #stop-btn:hover {
+      background-color: #c0392b;
+    }
     audio {
-      margin-top: 10px;
       width: 100%;
+      margin-top: 15px;
     }
     .status {
-      margin-top: 15px;
+      margin-top: 20px;
+      text-align: center;
       font-weight: bold;
       color: #2c3e50;
+    }
+
+    @media (max-width: 600px) {
+      input, button {
+        font-size: 15px;
+      }
     }
   </style>
 </head>
 <body>
-  <h2>Kuş Sesleri Oynatıcı</h2>
-  <div class="section">
-    <label>Ses Dosyası Yükle:</label>
-    <input type="file" id="audio-file" accept="audio/*">
+  <div class="container">
+    <h2>Kuş Sesleri Oynatıcı</h2>
+    <div class="section">
+      <label>Ses Dosyası Yükle:</label>
+      <input type="file" id="audio-file" accept="audio/*">
 
-    <label>Çalma Süresi (dakika):</label>
-    <input type="number" id="play-duration" value="5" min="1">
+      <label>Çalma Süresi (dakika):</label>
+      <input type="number" id="play-duration" value="5" min="1">
 
-    <label>Sessizlik Süresi (dakika):</label>
-    <input type="number" id="silence-duration" value="10" min="0">
+      <label>Sessizlik Süresi (dakika):</label>
+      <input type="number" id="silence-duration" value="10" min="0">
 
-    <label>Toplam Tekrar Sayısı:</label>
-    <input type="number" id="repeat-count" value="3" min="1">
+      <label>Toplam Tekrar Sayısı:</label>
+      <input type="number" id="repeat-count" value="3" min="1">
 
-    <button id="start-btn">Çalmayı Başlat</button>
-    <button id="stop-btn" style="background:#e74c3c;">Durdur</button>
+      <button id="start-btn">Çalmayı Başlat</button>
+      <button id="stop-btn">Durdur</button>
 
-    <div class="status" id="status">Hazır</div>
-
-    <audio id="audio-player" controls></audio>
+      <audio id="audio-player" controls></audio>
+      <div class="status" id="status">Hazır</div>
+    </div>
   </div>
 
   <script>
@@ -82,12 +115,9 @@
     const status = document.getElementById('status');
     const audioPlayer = document.getElementById('audio-player');
 
-    let sequenceInterval = null;
-    let currentRepeat = 0;
-    let stopRequested = false;
-
     let audioBlobUrl = '';
     let audioDuration = 0;
+    let stopRequested = false;
 
     audioInput.addEventListener('change', () => {
       const file = audioInput.files[0];
@@ -95,7 +125,6 @@
         audioBlobUrl = URL.createObjectURL(file);
         audioPlayer.src = audioBlobUrl;
 
-        // Ses uzunluğunu al
         const tempAudio = new Audio(audioBlobUrl);
         tempAudio.addEventListener('loadedmetadata', () => {
           audioDuration = tempAudio.duration;
@@ -108,16 +137,16 @@
     }
 
     async function playRepeatedAudio(minutes) {
-      const targetTime = minutes * 60; // saniye
-      let playedTime = 0;
+      const totalSeconds = minutes * 60;
+      let playedSeconds = 0;
 
-      while (playedTime < targetTime && !stopRequested) {
+      while (playedSeconds < totalSeconds && !stopRequested) {
         const audio = new Audio(audioBlobUrl);
         audio.play();
         await new Promise(resolve => {
           audio.onended = resolve;
         });
-        playedTime += audioDuration;
+        playedSeconds += audioDuration;
       }
     }
 
@@ -132,18 +161,16 @@
       const repeatTimes = parseInt(repeatCountInput.value);
 
       stopRequested = false;
-      currentRepeat = 0;
-
       status.textContent = "Çalma başlatıldı...";
 
       for (let i = 0; i < repeatTimes; i++) {
         if (stopRequested) break;
 
-        status.textContent = `Tekrar ${i + 1} - Ses çalınıyor...`;
+        status.textContent = `Tekrar ${i + 1}: Ses çalınıyor...`;
         await playRepeatedAudio(playMinutes);
 
         if (silenceMinutes > 0 && i < repeatTimes - 1 && !stopRequested) {
-          status.textContent = `Tekrar ${i + 1} - Sessizlik (${silenceMinutes} dk)...`;
+          status.textContent = `Tekrar ${i + 1}: Sessizlik (${silenceMinutes} dk)...`;
           await sleep(silenceMinutes * 60 * 1000);
         }
       }
@@ -152,7 +179,6 @@
     }
 
     startBtn.addEventListener('click', startSequence);
-
     stopBtn.addEventListener('click', () => {
       stopRequested = true;
       status.textContent = "Durduruluyor...";
