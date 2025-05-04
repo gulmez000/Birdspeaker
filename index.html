@@ -1,24 +1,28 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kuş Sesleri Oynatıcı</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
       font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
       margin: 0;
       padding: 0;
+      background-color: #f4f4f4;
     }
     .container {
       max-width: 600px;
-      margin: auto;
+      margin: 0 auto;
       padding: 20px;
     }
     h2 {
       text-align: center;
       color: #2c3e50;
+      margin-bottom: 20px;
     }
     .section {
       background: #fff;
@@ -27,12 +31,14 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     label {
+      margin-top: 10px;
       display: block;
       font-weight: bold;
-      margin-top: 10px;
       color: #2c3e50;
     }
-    input, button {
+    input[type="file"],
+    input[type="number"],
+    button {
       width: 100%;
       padding: 10px;
       margin-top: 5px;
@@ -45,6 +51,7 @@
       background-color: #27ae60;
       color: white;
       border: none;
+      font-weight: bold;
       cursor: pointer;
     }
     button:hover {
@@ -56,15 +63,26 @@
     #stop-btn:hover {
       background-color: #c0392b;
     }
+    #stop-record-btn {
+      background-color: #d35400;
+    }
+    #stop-record-btn:hover {
+      background-color: #a84300;
+    }
     audio {
       width: 100%;
-      margin-top: 10px;
+      margin-top: 15px;
     }
     .status {
-      margin-top: 15px;
+      margin-top: 20px;
       text-align: center;
       font-weight: bold;
       color: #2c3e50;
+    }
+    @media (max-width: 600px) {
+      input, button {
+        font-size: 15px;
+      }
     }
   </style>
 </head>
@@ -77,12 +95,12 @@
 
       <label>veya Ses Kaydet:</label>
       <button id="record-btn">Kaydı Başlat</button>
-      <button id="stop-record-btn" disabled>Durdur & Kullan</button>
+      <button id="stop-record-btn" disabled>Kaydı Durdur</button>
 
-      <label>Çalma Süresi (dk):</label>
+      <label>Çalma Süresi (dakika):</label>
       <input type="number" id="play-duration" value="5" min="1">
 
-      <label>Sessizlik Süresi (dk):</label>
+      <label>Sessizlik Süresi (dakika):</label>
       <input type="number" id="silence-duration" value="10" min="0">
 
       <label>Toplam Tekrar Sayısı:</label>
@@ -109,9 +127,9 @@
     const audioPlayer = document.getElementById('audio-player');
 
     let audioBlobUrl = '';
+    let audioBlob = null;
     let audioDuration = 0;
     let stopRequested = false;
-
     let mediaRecorder;
     let recordedChunks = [];
 
@@ -119,6 +137,7 @@
       const file = audioInput.files[0];
       if (file) {
         audioBlobUrl = URL.createObjectURL(file);
+        audioBlob = file;
         audioPlayer.src = audioBlobUrl;
         const tempAudio = new Audio(audioBlobUrl);
         tempAudio.addEventListener('loadedmetadata', () => {
@@ -138,9 +157,16 @@
           if (e.data.size > 0) recordedChunks.push(e.data);
         };
 
+        mediaRecorder.onstart = () => {
+          status.textContent = "Kayıt yapılıyor...";
+          recordBtn.textContent = "Kayıt Başladı...";
+          recordBtn.style.backgroundColor = "#f39c12";
+        };
+
         mediaRecorder.onstop = () => {
           const blob = new Blob(recordedChunks, { type: 'audio/webm' });
           audioBlobUrl = URL.createObjectURL(blob);
+          audioBlob = blob;
           audioPlayer.src = audioBlobUrl;
 
           const tempAudio = new Audio(audioBlobUrl);
@@ -148,12 +174,14 @@
             audioDuration = tempAudio.duration;
             status.textContent = `Kayıt tamamlandı. Süre: ${audioDuration.toFixed(1)} sn`;
           });
+
+          recordBtn.textContent = "Kaydı Başlat";
+          recordBtn.style.backgroundColor = "#27ae60";
         };
 
         mediaRecorder.start();
         recordBtn.disabled = true;
         stopRecordBtn.disabled = false;
-        status.textContent = "Kaydediliyor...";
       } catch (err) {
         console.error(err);
         status.textContent = "Mikrofona erişilemedi.";
@@ -178,7 +206,9 @@
       while (playedSeconds < totalSeconds && !stopRequested) {
         const audio = new Audio(audioBlobUrl);
         audio.play();
-        await new Promise(resolve => audio.onended = resolve);
+        await new Promise(resolve => {
+          audio.onended = resolve;
+        });
         playedSeconds += audioDuration;
       }
     }
@@ -198,12 +228,11 @@
 
       for (let i = 0; i < repeatTimes; i++) {
         if (stopRequested) break;
-
         status.textContent = `Tekrar ${i + 1}: Ses çalınıyor...`;
         await playRepeatedAudio(playMinutes);
 
         if (silenceMinutes > 0 && i < repeatTimes - 1 && !stopRequested) {
-          status.textContent = `Tekrar ${i + 1}: Sessizlik süresi (${silenceMinutes} dk)...`;
+          status.textContent = `Tekrar ${i + 1}: Sessizlik (${silenceMinutes} dk)...`;
           await sleep(silenceMinutes * 60 * 1000);
         }
       }
