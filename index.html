@@ -186,117 +186,55 @@
             const stopSequenceButton = document.getElementById('stop-sequence');
             const playlistContainer = document.getElementById('playlist');
             const playerStatus = document.getElementById('player-status');
-
-            // Kayıt fonksiyonları
-            recordButton.addEventListener('click', () => {
-                if (mediaRecorder && mediaRecorder.state === 'recording') {
+            
+            // Sırayla çalmayı başlatma
+            startSequenceButton.addEventListener('click', () => {
+                if (playlist.length === 0) {
+                    alert("Çalma listesi boş.");
                     return;
                 }
-                
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(stream => {
-                        // MediaRecorder MIME tipi kontrolü
-                        mediaRecorder = new MediaRecorder(stream, {
-                            mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
-                        });
-                        audioChunks = [];
-                        
-                        mediaRecorder.addEventListener('dataavailable', event => {
-                            audioChunks.push(event.data);
-                        });
-                        
-                        mediaRecorder.addEventListener('stop', () => {
-                            const audioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-                            const audioUrl = URL.createObjectURL(audioBlob);
-                            const name = recordingName.value || `Ses ${recordings.length + 1}`;
-                            
-                            recordings.push({
-                                id: Date.now(),
-                                name,
-                                url: audioUrl,
-                                blob: audioBlob
-                            });
-                            
-                            updateRecordingsList();
-                            updateSoundSelect();
-                            
-                            recordingStatus.textContent = 'Kayıt tamamlandı!';
-                            recordButton.disabled = false;
-                            
-                            // Sonraki kayıt için isim güncelleme
-                            recordingName.value = `Ses ${recordings.length + 1}`;
-                            
-                            // Stream'i kapatma
-                            stream.getTracks().forEach(track => track.stop());
-                        });
-                        
-                        // 5 saniyelik kayıt
-                        mediaRecorder.start();
-                        recordButton.disabled = true;
-                        recordingStatus.textContent = 'Kaydediliyor...';
-                        
-                        setTimeout(() => {
-                            if (mediaRecorder.state === 'recording') {
-                                mediaRecorder.stop();
-                            }
-                        }, 5000);
-                    })
-                    .catch(error => {
-                        console.error('Mikrofon erişimi hatası:', error);
-                        recordingStatus.textContent = 'Mikrofon erişimi reddedildi!';
-                    });
+
+                isPlaying = true;
+                currentAudioIndex = 0;
+                repetitionCount = parseInt(repeatCountInput.value, 10);
+
+                playNextAudio();  // İlk sesi çalmaya başlar
+                playerStatus.textContent = 'Çalıyor...';
+                playerStatus.classList.remove('stopped');
+                playerStatus.classList.add('playing');
             });
-            
-            // Kayıt listesini güncelleme
-            function updateRecordingsList() {
-                recordingsList.innerHTML = '';
-                
-                recordings.forEach(recording => {
-                    const audioItem = document.createElement('div');
-                    audioItem.className = 'audio-item';
-                    
-                    const audioLabel = document.createElement('div');
-                    audioLabel.className = 'audio-label';
-                    audioLabel.textContent = recording.name;
-                    
-                    const audio = document.createElement('audio');
-                    audio.controls = true;
-                    audio.src = recording.url;
-                    
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'delete-btn';
-                    deleteButton.textContent = 'Sil';
-                    deleteButton.addEventListener('click', () => {
-                        recordings = recordings.filter(r => r.id !== recording.id);
-                        updateRecordingsList();
-                        updateSoundSelect();
-                        
-                        // Çalma listesinden de kaldır
-                        playlist = playlist.filter(item => item.type !== 'sound' || item.id !== recording.id);
-                        updatePlaylist();
-                    });
-                    
-                    audioItem.appendChild(audioLabel);
-                    audioItem.appendChild(audio);
-                    audioItem.appendChild(deleteButton);
-                    recordingsList.appendChild(audioItem);
-                });
-            }
-            
-            // Ses seçimini güncelleme
-            function updateSoundSelect() {
-                soundSelect.innerHTML = '<option value="">Ses seçin</option>';
-                
-                recordings.forEach(recording => {
-                    const option = document.createElement('option');
-                    option.value = recording.id;
-                    option.textContent = recording.name;
-                    soundSelect.appendChild(option);
-                });
+
+            // Sesleri sırayla çalma fonksiyonu
+            function playNextAudio() {
+                if (!isPlaying || currentAudioIndex >= playlist.length || repetitionCount <= 0) {
+                    stopSequence();
+                    return;
+                }
+
+                const currentItem = playlist[currentAudioIndex];
+                if (currentItem.type === 'sound') {
+                    currentAudio = new Audio(currentItem.url);
+                    currentAudio.play();
+
+                    currentAudio.onended = () => {
+                        currentAudioIndex++;  // Bir sonraki ses için indexi arttır
+                        playNextAudio();  // Sonraki sesi çalmaya başla
+                    };
+                } else if (currentItem.type === 'silence') {
+                    setTimeout(() => {
+                        currentAudioIndex++;  // Sessizlik bitince sıradaki öğeyi çalmaya başla
+                        playNextAudio();
+                    }, currentItem.duration * 1000);
+                }
             }
 
-            // (Devamı burada...)
-
+            // Çalma sırasını durdurma
+            function stopSequence() {
+                isPlaying = false;
+                playerStatus.textContent = 'Durduruldu';
+                playerStatus.classList.remove('playing');
+                playerStatus.classList.add('stopped');
+            }
         });
     </script>
 </body>
