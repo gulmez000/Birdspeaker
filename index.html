@@ -73,6 +73,13 @@
       font-weight: bold;
       color: #2c3e50;
     }
+    .version {
+      text-align: center;
+      background-color: #2c3e50;
+      color: white;
+      padding: 10px 0;
+      font-size: 16px;
+    }
     @media (max-width: 600px) {
       input, button {
         font-size: 15px;
@@ -81,6 +88,11 @@
   </style>
 </head>
 <body>
+  <!-- Kuş v1 ve güncelleme bilgisini gösteren kısım -->
+  <div class="version">
+    Kuş v1 | Son Güncelleme: Mayıs 2025
+  </div>
+
   <div class="container">
     <h2>Kuş Sesleri Oynatıcı</h2>
     <div class="section">
@@ -91,150 +103,96 @@
       <button id="record-btn">Kayda Başla</button>
       <button id="stop-record-btn" disabled>Kaydı Durdur</button>
 
-      <label>Çalma Süresi (dakika):</label>
-      <input type="number" id="play-duration" value="5" min="1" />
-
-      <label>Sessizlik Süresi (dakika):</label>
-      <input type="number" id="silence-duration" value="10" min="0" />
-
-      <label>Toplam Tekrar Sayısı:</label>
-      <input type="number" id="repeat-count" value="3" min="1" />
-
-      <button id="start-btn">Çalmayı Başlat</button>
-      <button id="stop-btn">Durdur</button>
-
       <audio id="audio-player" controls></audio>
+      <div id="download-container" style="display:none;">
+        <a id="download-link" href="#" download="kayit.wav">
+          <button>Kaydı İndir</button>
+        </a>
+      </div>
+
       <div class="status" id="status">Hazır</div>
     </div>
   </div>
 
   <script>
-    const audioInput = document.getElementById("audio-file");
-    const playDurationInput = document.getElementById("play-duration");
-    const silenceDurationInput = document.getElementById("silence-duration");
-    const repeatCountInput = document.getElementById("repeat-count");
-    const startBtn = document.getElementById("start-btn");
-    const stopBtn = document.getElementById("stop-btn");
-    const recordBtn = document.getElementById("record-btn");
-    const stopRecordBtn = document.getElementById("stop-record-btn");
-    const status = document.getElementById("status");
-    const audioPlayer = document.getElementById("audio-player");
+    const recordBtn = document.getElementById('record-btn');
+    const stopRecordBtn = document.getElementById('stop-record-btn');
+    const audioPlayer = document.getElementById('audio-player');
+    const status = document.getElementById('status');
+    const downloadContainer = document.getElementById('download-container');
+    const downloadLink = document.getElementById('download-link');
 
-    let audioBlobUrl = '';
-    let audioDuration = 0;
-    let stopRequested = false;
-    let recorder, chunks = [];
+    let mediaRecorder;
+    let audioChunks = [];
+    let audioBlob;
+    let audioUrl;
 
-    audioInput.addEventListener("change", () => {
-      const file = audioInput.files[0];
-      if (file) {
-        audioBlobUrl = URL.createObjectURL(file);
-        audioPlayer.src = audioBlobUrl;
-
-        const tempAudio = new Audio(audioBlobUrl);
-        tempAudio.addEventListener("loadedmetadata", () => {
-          audioDuration = tempAudio.duration;
-        });
-      }
-    });
-
-    recordBtn.addEventListener("click", async () => {
-      status.textContent = "Kaydediliyor...";
+    recordBtn.addEventListener('click', async () => {
+      status.textContent = 'Kaydediliyor... Lütfen bekleyin.';
       recordBtn.disabled = true;
       stopRecordBtn.disabled = false;
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recorder = new MediaRecorder(stream);
-      chunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.start();
 
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "audio/webm" });
-        audioBlobUrl = URL.createObjectURL(blob);
-        audioPlayer.src = audioBlobUrl;
-
-        const tempAudio = new Audio(audioBlobUrl);
-        tempAudio.addEventListener("loadedmetadata", () => {
-          audioDuration = tempAudio.duration;
-        });
-
-        status.textContent = "Kayıt tamamlandı.";
-        recordBtn.disabled = false;
-        stopRecordBtn.disabled = true;
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunks.push(event.data);
       };
 
-      recorder.start();
+      mediaRecorder.onstop = () => {
+        audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        audioUrl = URL.createObjectURL(audioBlob);
+        audioPlayer.src = audioUrl;
+
+        const link = document.createElement('a');
+        link.href = audioUrl;
+        link.download = 'kayit.wav';
+        downloadLink.href = link.href;
+        downloadContainer.style.display = 'block';
+        status.textContent = 'Kaydedildi!';
+
+        // Temizle
+        audioChunks = [];
+      };
     });
 
-    stopRecordBtn.addEventListener("click", () => {
-      if (recorder && recorder.state !== "inactive") {
-        recorder.stop();
-        status.textContent = "Kayıt durduruldu, işleniyor...";
+    stopRecordBtn.addEventListener('click', () => {
+      mediaRecorder.stop();
+      stopRecordBtn.disabled = true;
+      recordBtn.disabled = false;
+      status.textContent = 'Kaydediliyor... Durdu.';
+    });
+
+    function playRepeatedAudio() {
+      // Ses çalmaya başla
+      const audio = new Audio(audioUrl);
+      audio.loop = true;
+      audio.play();
+      audioPlayer.src = audioUrl;
+    }
+
+    // Kullanıcı ses dosyası yüklediğinde tekrar çalabilmesi için
+    const audioInput = document.getElementById('audio-file');
+    audioInput.addEventListener('change', () => {
+      const file = audioInput.files[0];
+      if (file) {
+        const audioBlobUrl = URL.createObjectURL(file);
+        audioPlayer.src = audioBlobUrl;
+        audioPlayer.loop = true; // Arka arkaya çalmasını sağlamak için loop
+        status.textContent = 'Ses dosyası yüklendi, çalıyor...';
       }
     });
 
-    function sleep(ms) {
-      return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-
-    async function ensureAudioDurationLoaded() {
-      return new Promise((resolve) => {
-        if (audioDuration > 0) return resolve();
-        const tempAudio = new Audio(audioBlobUrl);
-        tempAudio.addEventListener("loadedmetadata", () => {
-          audioDuration = tempAudio.duration;
-          resolve();
-        });
-      });
-    }
-
-    async function playRepeatedAudio(minutes) {
-      const totalSeconds = minutes * 60;
-      let playedSeconds = 0;
-
-      while (playedSeconds < totalSeconds && !stopRequested) {
-        const audio = new Audio(audioBlobUrl);
-        audio.play();
-        await new Promise((resolve) => {
-          audio.onended = resolve;
-        });
-        playedSeconds += audioDuration;
-      }
-    }
-
-    async function startSequence() {
-      if (!audioBlobUrl) {
-        alert("Lütfen bir ses dosyası yükleyin veya kaydedin.");
+    // Kayıt bitiminde, ses tekrar çalacak şekilde bir fonksiyon ekledik.
+    recordBtn.addEventListener('click', () => {
+      // Eğer kayıt yapılmadıysa
+      if (!audioUrl) {
+        status.textContent = "Lütfen önce ses kaydınızı yapın!";
         return;
       }
-
-      stopRequested = false;
-      status.textContent = "Çalma başlatılıyor...";
-      await ensureAudioDurationLoaded();
-
-      const playMinutes = parseInt(playDurationInput.value);
-      const silenceMinutes = parseInt(silenceDurationInput.value);
-      const repeatTimes = parseInt(repeatCountInput.value);
-
-      for (let i = 0; i < repeatTimes; i++) {
-        if (stopRequested) break;
-        status.textContent = `Tekrar ${i + 1}: Ses çalınıyor...`;
-        await playRepeatedAudio(playMinutes);
-
-        if (silenceMinutes > 0 && i < repeatTimes - 1 && !stopRequested) {
-          status.textContent = `Tekrar ${i + 1}: Sessizlik (${silenceMinutes} dk)...`;
-          await sleep(silenceMinutes * 60 * 1000);
-        }
-      }
-
-      status.textContent = stopRequested ? "Durduruldu." : "Tüm tekrarlar tamamlandı.";
-    }
-
-    startBtn.addEventListener("click", startSequence);
-
-    stopBtn.addEventListener("click", () => {
-      stopRequested = true;
-      status.textContent = "Durduruluyor...";
+      status.textContent = 'Ses çalıyor...';
+      playRepeatedAudio();
     });
   </script>
 </body>
