@@ -7,9 +7,9 @@
   <style>
     body {
       font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
       margin: 0;
       padding: 0;
-      background-color: #f4f4f4;
     }
     .container {
       max-width: 600px;
@@ -19,7 +19,6 @@
     h2 {
       text-align: center;
       color: #2c3e50;
-      margin-bottom: 20px;
     }
     .section {
       background: #fff;
@@ -28,9 +27,9 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
     label {
-      margin-top: 10px;
       display: block;
       font-weight: bold;
+      margin-top: 10px;
       color: #2c3e50;
     }
     input, button {
@@ -46,7 +45,6 @@
       background-color: #27ae60;
       color: white;
       border: none;
-      font-weight: bold;
       cursor: pointer;
     }
     button:hover {
@@ -63,7 +61,7 @@
       margin-top: 10px;
     }
     .status {
-      margin-top: 20px;
+      margin-top: 15px;
       text-align: center;
       font-weight: bold;
       color: #2c3e50;
@@ -122,10 +120,10 @@
       if (file) {
         audioBlobUrl = URL.createObjectURL(file);
         audioPlayer.src = audioBlobUrl;
-
         const tempAudio = new Audio(audioBlobUrl);
         tempAudio.addEventListener('loadedmetadata', () => {
           audioDuration = tempAudio.duration;
+          status.textContent = `Yüklenen ses uzunluğu: ${audioDuration.toFixed(1)} sn`;
         });
       }
     });
@@ -148,18 +146,17 @@
           const tempAudio = new Audio(audioBlobUrl);
           tempAudio.addEventListener('loadedmetadata', () => {
             audioDuration = tempAudio.duration;
+            status.textContent = `Kayıt tamamlandı. Süre: ${audioDuration.toFixed(1)} sn`;
           });
-
-          status.textContent = "Kayıt tamamlandı.";
         };
 
         mediaRecorder.start();
         recordBtn.disabled = true;
         stopRecordBtn.disabled = false;
-        status.textContent = "Kayıt başlatıldı...";
+        status.textContent = "Kaydediliyor...";
       } catch (err) {
         console.error(err);
-        status.textContent = "Kayıt başlatılamadı.";
+        status.textContent = "Mikrofona erişilemedi.";
       }
     });
 
@@ -167,7 +164,7 @@
       mediaRecorder.stop();
       recordBtn.disabled = false;
       stopRecordBtn.disabled = true;
-      status.textContent = "Kayıt durduruldu.";
+      status.textContent = "Kayıt durduruldu, işleniyor...";
     });
 
     function sleep(ms) {
@@ -206,12 +203,12 @@
         await playRepeatedAudio(playMinutes);
 
         if (silenceMinutes > 0 && i < repeatTimes - 1 && !stopRequested) {
-          status.textContent = `Tekrar ${i + 1}: Sessizlik (${silenceMinutes} dk)...`;
+          status.textContent = `Tekrar ${i + 1}: Sessizlik süresi (${silenceMinutes} dk)...`;
           await sleep(silenceMinutes * 60 * 1000);
         }
       }
 
-      status.textContent = stopRequested ? "Durduruldu." : "Tamamlandı.";
+      status.textContent = stopRequested ? "Durduruldu." : "Tüm tekrarlar tamamlandı.";
     }
 
     startBtn.addEventListener('click', startSequence);
