@@ -133,19 +133,19 @@
                     <select id="sound-select">
                         <option value="">Ses seçin</option>
                     </select>
-                    <input type="number" id="duration" min="1" max="60" value="5" placeholder="Dk">
+                    <input type="number" id="duration" min="1" max="60" value="5" placeholder="Dakika">
                     <span>dakika</span>
                     <button id="add-to-playlist">Listeye Ekle</button>
                 </div>
                 <div class="sequence-item">
                     <span>Sessiz süre: </span>
-                    <input type="number" id="silence-duration" min="0" max="120" value="30" placeholder="Dk">
+                    <input type="number" id="silence-duration" min="0" max="120" value="10" placeholder="Dakika">
                     <span>dakika</span>
                     <button id="add-silence">Sessizlik Ekle</button>
                 </div>
                 <div class="sequence-item">
                     <span>Toplam tekrar sayısı: </span>
-                    <input type="number" id="repeat-count" min="1" max="100" value="7">
+                    <input type="number" id="repeat-count" min="1" max="100" value="3">
                     <button id="start-sequence" class="play">Çalmayı Başlat</button>
                     <button id="stop-sequence">Durdur</button>
                 </div>
@@ -167,10 +167,10 @@
             let playlist = [];
             let isPlaying = false;
             let currentAudioIndex = 0;
-            let repetitionCount = 0;
+            let currentRepeatCount = 0;
             let currentAudio = null;
             let silenceTimeout = null;
-            
+
             // DOM elementleri
             const recordButton = document.getElementById('record');
             const recordingStatus = document.getElementById('recording-status');
@@ -186,54 +186,216 @@
             const stopSequenceButton = document.getElementById('stop-sequence');
             const playlistContainer = document.getElementById('playlist');
             const playerStatus = document.getElementById('player-status');
-            
-            // Sırayla çalmayı başlatma
+
+            // Kayıt fonksiyonu
+            recordButton.addEventListener('click', () => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    return;
+                }
+
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        mediaRecorder = new MediaRecorder(stream);
+                        audioChunks = [];
+
+                        mediaRecorder.addEventListener('dataavailable', event => {
+                            audioChunks.push(event.data);
+                        });
+
+                        mediaRecorder.addEventListener('stop', () => {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                            const audioUrl = URL.createObjectURL(audioBlob);
+                            const name = recordingName.value || `Ses ${recordings.length + 1}`;
+
+                            recordings.push({
+                                id: Date.now(),
+                                name,
+                                url: audioUrl,
+                                blob: audioBlob
+                            });
+
+                            updateRecordingsList();
+                            updateSoundSelect();
+
+                            recordingStatus.textContent = 'Kayıt tamamlandı!';
+                            recordButton.disabled = false;
+                        });
+
+                        mediaRecorder.start();
+                        recordButton.disabled = true;
+                        recordingStatus.textContent = 'Kaydediliyor...';
+
+                        setTimeout(() => {
+                            if (mediaRecorder.state === 'recording') {
+                                mediaRecorder.stop();
+                            }
+                        }, 5000);
+                    })
+                    .catch(error => {
+                        console.error('Mikrofon erişimi hatası:', error);
+                        recordingStatus.textContent = 'Mikrofon erişimi reddedildi!';
+                    });
+            });
+
+            // Kayıt listesini güncelleme
+            function updateRecordingsList() {
+                recordingsList.innerHTML = '';
+
+                recordings.forEach(recording => {
+                    const audioItem = document.createElement('div');
+                    audioItem.className = 'audio-item';
+
+                    const audioLabel = document.createElement('div');
+                    audioLabel.className = 'audio-label';
+                    audioLabel.textContent = recording.name;
+
+                  const audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = recording.url;
+
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'delete-btn';
+                    deleteButton.textContent = 'Sil';
+                    deleteButton.addEventListener('click', () => {
+                        recordings = recordings.filter(r => r.id !== recording.id);
+                        updateRecordingsList();
+                        updateSoundSelect();
+
+                        // Çalma listesinden de kaldır
+                        playlist = playlist.filter(item => item.type !== 'sound' || item.id !== recording.id);
+                        updatePlaylist();
+                    });
+
+                    audioItem.appendChild(audioLabel);
+                    audioItem.appendChild(audio);
+                    audioItem.appendChild(deleteButton);
+                    recordingsList.appendChild(audioItem);
+                });
+            }
+
+            // Ses seçimini güncelleme
+            function updateSoundSelect() {
+                soundSelect.innerHTML = '<option value="">Ses seçin</option>';
+
+                recordings.forEach(recording => {
+                    const option = document.createElement('option');
+                    option.value = recording.id;
+                    option.textContent = recording.name;
+                    soundSelect.appendChild(option);
+                });
+            }
+
+            // Playlist'e ses eklemek
+            addToPlaylistButton.addEventListener('click', () => {
+                const soundId = soundSelect.value;
+                const duration = parseInt(durationInput.value) * 60 * 1000;  // dakika cinsinden çalma süresi
+                const silenceDuration = parseInt(silenceDurationInput.value) * 60 * 1000;  // dakika cinsinden sessizlik süresi
+                const repeatCount = parseInt(repeatCountInput.value);
+
+                if (soundId && duration > 0 && repeatCount > 0) {
+                    const recording = recordings.find(r => r.id == soundId);
+
+                    if (recording) {
+                        playlist.push({
+                            type: 'sound',
+                            id: recording.id,
+                            name: recording.name,
+                            url: recording.url,
+                            duration,
+                            silenceDuration,
+                            repeatCount
+                        });
+
+                        updatePlaylist();
+                    }
+                }
+            });
+
+            // Playlist'e sessizlik eklemek
+            addSilenceButton.addEventListener('click', () => {
+                const silenceDuration = parseInt(silenceDurationInput.value) * 60 * 1000;
+
+                if (silenceDuration > 0) {
+                    playlist.push({
+                        type: 'silence',
+                        duration: silenceDuration
+                    });
+
+                    updatePlaylist();
+                }
+            });
+
+            // Playlist'i güncelleme
+            function updatePlaylist() {
+                playlistContainer.innerHTML = '';
+
+                playlist.forEach(item => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'audio-item';
+
+                    if (item.type === 'sound') {
+                        listItem.textContent = `${item.name} - ${item.duration / 60000} dakika`;
+                    } else {
+                        listItem.textContent = `Sessizlik - ${item.duration / 60000} dakika`;
+                    }
+
+                    playlistContainer.appendChild(listItem);
+                });
+            }
+
+            // Çalma işlemi başlatma
             startSequenceButton.addEventListener('click', () => {
                 if (playlist.length === 0) {
-                    alert("Çalma listesi boş.");
                     return;
                 }
 
                 isPlaying = true;
                 currentAudioIndex = 0;
-                repetitionCount = parseInt(repeatCountInput.value, 10);
-
-                playNextAudio();  // İlk sesi çalmaya başlar
+                currentRepeatCount = 0;
                 playerStatus.textContent = 'Çalıyor...';
                 playerStatus.classList.remove('stopped');
                 playerStatus.classList.add('playing');
+                playNext();
             });
 
-            // Sesleri sırayla çalma fonksiyonu
-            function playNextAudio() {
-                if (!isPlaying || currentAudioIndex >= playlist.length || repetitionCount <= 0) {
-                    stopSequence();
-                    return;
-                }
-
-                const currentItem = playlist[currentAudioIndex];
-                if (currentItem.type === 'sound') {
-                    currentAudio = new Audio(currentItem.url);
-                    currentAudio.play();
-
-                    currentAudio.onended = () => {
-                        currentAudioIndex++;  // Bir sonraki ses için indexi arttır
-                        playNextAudio();  // Sonraki sesi çalmaya başla
-                    };
-                } else if (currentItem.type === 'silence') {
-                    setTimeout(() => {
-                        currentAudioIndex++;  // Sessizlik bitince sıradaki öğeyi çalmaya başla
-                        playNextAudio();
-                    }, currentItem.duration * 1000);
-                }
-            }
-
-            // Çalma sırasını durdurma
-            function stopSequence() {
+            // Çalma işlemi durdurma
+            stopSequenceButton.addEventListener('click', () => {
                 isPlaying = false;
                 playerStatus.textContent = 'Durduruldu';
                 playerStatus.classList.remove('playing');
                 playerStatus.classList.add('stopped');
+            });
+
+            // Bir sonraki öğeyi çalma
+            function playNext() {
+                if (!isPlaying || currentAudioIndex >= playlist.length) {
+                    return;
+                }
+
+                const currentItem = playlist[currentAudioIndex];
+
+                if (currentItem.type === 'sound') {
+                    const audio = new Audio(currentItem.url);
+                    audio.play();
+
+                    audio.onended = () => {
+                        // Ses bittiğinde sessizlik eklemek veya bir sonraki ses
+                        if (currentItem.silenceDuration > 0) {
+                            setTimeout(() => {
+                                currentAudioIndex++;
+                                playNext();
+                            }, currentItem.silenceDuration);
+                        } else {
+                            currentAudioIndex++;
+                            playNext();
+                        }
+                    };
+                } else if (currentItem.type === 'silence') {
+                    setTimeout(() => {
+                        currentAudioIndex++;
+                        playNext();
+                    }, currentItem.duration);
+                }
             }
         });
     </script>
