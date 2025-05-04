@@ -1,366 +1,162 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kuş Seslendirme Uygulaması</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        h1 {
-            text-align: center;
-            color: #2c3e50;
-        }
-        .container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .record-section, .playlist-section {
-            margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            margin: 5px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        button:disabled {
-            background-color: #95a5a6;
-            cursor: not-allowed;
-        }
-        button.record {
-            background-color: #e74c3c;
-        }
-        button.record:hover {
-            background-color: #c0392b;
-        }
-        button.play {
-            background-color: #2ecc71;
-        }
-        button.play:hover {
-            background-color: #27ae60;
-        }
-        .audio-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-            padding: 10px;
-            background-color: #f9f9f9;
-            border-radius: 5px;
-        }
-        .controls {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        input[type="number"] {
-            width: 60px;
-            padding: 5px;
-            margin: 0 5px;
-        }
-        .status {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 5px;
-            text-align: center;
-            font-weight: bold;
-        }
-        .audio-label {
-            width: 100px;
-            margin-right: 10px;
-            font-weight: bold;
-        }
-        .sequence-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        #playlist {
-            margin-top: 10px;
-            padding: 10px;
-            border: 1px dashed #ccc;
-            border-radius: 5px;
-        }
-        .delete-btn {
-            background-color: #e74c3c;
-            margin-left: 10px;
-        }
-        .status.playing {
-            background-color: #d5f5e3;
-            color: #27ae60;
-        }
-        .status.stopped {
-            background-color: #fadbd8;
-            color: #e74c3c;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Kuş Sesleri Oynatıcı</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+    h2 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .section {
+      background: #fff;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px #ccc;
+    }
+    label, input, button {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+    }
+    button {
+      padding: 10px;
+      background-color: #27ae60;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #219150;
+    }
+    audio {
+      margin-top: 10px;
+      width: 100%;
+    }
+    .status {
+      margin-top: 15px;
+      font-weight: bold;
+      color: #2c3e50;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Kuş Seslendirme Uygulaması</h1>
-        
-        <div class="record-section">
-            <h2>Ses Dosyası Yükleme</h2>
-            <div class="controls">
-                <input type="file" id="file-input" accept="audio/*">
-                <span id="file-status"></span>
-            </div>
-            <div id="recordings-list"></div>
-        </div>
-        
-        <div class="playlist-section">
-            <h2>Çalma Listesi</h2>
-            <div id="playlist-controls">
-                <div class="sequence-item">
-                    <select id="sound-select">
-                        <option value="">Ses seçin</option>
-                    </select>
-                    <input type="number" id="duration" min="1" max="60" value="5" placeholder="Dk">
-                    <span>dakika</span>
-                    <button id="add-to-playlist">Listeye Ekle</button>
-                </div>
-                <div class="sequence-item">
-                    <span>Sessiz süre: </span>
-                    <input type="number" id="silence-duration" min="0" max="120" value="30" placeholder="Dk">
-                    <span>dakika</span>
-                    <button id="add-silence">Sessizlik Ekle</button>
-                </div>
-                <div class="sequence-item">
-                    <span>Toplam tekrar sayısı: </span>
-                    <input type="number" id="repeat-count" min="1" max="100" value="7">
-                    <button id="start-sequence" class="play">Çalmayı Başlat</button>
-                    <button id="stop-sequence">Durdur</button>
-                </div>
-            </div>
-            
-            <h3>Çalma Sırası:</h3>
-            <div id="playlist"></div>
-            
-            <div id="player-status" class="status stopped">Hazır</div>
-        </div>
-    </div>
+  <h2>Kuş Sesleri Oynatıcı</h2>
+  <div class="section">
+    <label>Ses Dosyası Yükle:</label>
+    <input type="file" id="audio-file" accept="audio/*">
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // Global değişkenler
-            let recordings = [];
-            let playlist = [];
-            let isPlaying = false;
-            let currentAudioIndex = 0;
-            let currentRepeatCount = 0;
-            
-            // DOM elementleri
-            const fileInput = document.getElementById('file-input');
-            const fileStatus = document.getElementById('file-status');
-            const soundSelect = document.getElementById('sound-select');
-            const durationInput = document.getElementById('duration');
-            const silenceDurationInput = document.getElementById('silence-duration');
-            const repeatCountInput = document.getElementById('repeat-count');
-            const addToPlaylistButton = document.getElementById('add-to-playlist');
-            const addSilenceButton = document.getElementById('add-silence');
-            const startSequenceButton = document.getElementById('start-sequence');
-            const stopSequenceButton = document.getElementById('stop-sequence');
-            const playlistContainer = document.getElementById('playlist');
-            const playerStatus = document.getElementById('player-status');
-            
-            // Dosya yükleme işlemi
-            fileInput.addEventListener('change', () => {
-                const file = fileInput.files[0];
-                if (file && file.type.startsWith('audio/')) {
-                    const audioUrl = URL.createObjectURL(file);
-                    recordings.push({
-                        id: Date.now(),
-                        name: file.name,
-                        url: audioUrl,
-                        blob: file
-                    });
-                    fileStatus.textContent = 'Dosya başarıyla yüklendi!';
-                    updateRecordingsList();
-                    updateSoundSelect();
-                } else {
-                    fileStatus.textContent = 'Geçerli bir ses dosyası seçin.';
-                }
-            });
-            
-            // Kayıt listesini güncelleme
-            function updateRecordingsList() {
-                const recordingsList = document.getElementById('recordings-list');
-                recordingsList.innerHTML = '';
-                
-                recordings.forEach(recording => {
-                    const audioItem = document.createElement('div');
-                    audioItem.className = 'audio-item';
-                    
-                    const audioLabel = document.createElement('div');
-                    audioLabel.className = 'audio-label';
-                    audioLabel.textContent = recording.name;
-                    
-                    const audio = document.createElement('audio');
-                    audio.controls = true;
-                    audio.src = recording.url;
-                    
-                    const deleteButton = document.createElement('button');
-                    deleteButton.className = 'delete-btn';
-                    deleteButton.textContent = 'Sil';
-                    deleteButton.addEventListener('click', () => {
-                        recordings = recordings.filter(r => r.id !== recording.id);
-                        updateRecordingsList();
-                        updateSoundSelect();
-                        
-                        // Çalma listesinden de kaldır
-                        playlist = playlist.filter(item => item.type !== 'sound' || item.id !== recording.id);
-                        updatePlaylist();
-                    });
-                    
-                    audioItem.appendChild(audioLabel);
-                    audioItem.appendChild(audio);
-                    audioItem.appendChild(deleteButton);
-                    recordingsList.appendChild(audioItem);
-                });
-            }
-            
-            // Ses seçimini güncelleme
-            function updateSoundSelect() {
-                soundSelect.innerHTML = '<option value="">Ses seçin</option>';
-                
-                recordings.forEach(recording => {
-                    const option = document.createElement('option');
-                    option.value = recording.id;
-                    option.textContent = recording.name;
-                    soundSelect.appendChild(option);
-                });
-            }
+    <label>Çalma Süresi (dakika):</label>
+    <input type="number" id="play-duration" value="5" min="1">
 
-            // Playlist'e ses eklemek
-            addToPlaylistButton.addEventListener('click', () => {
-                const soundId = soundSelect.value;
-                const duration = parseInt(durationInput.value) * 60 * 1000;  // dakika cinsinden çalma süresi
-                const silenceDuration = parseInt(silenceDurationInput.value) * 60 * 1000;  // dakika cinsinden sessizlik süresi
-                const repeatCount = parseInt(repeatCountInput.value);
+    <label>Sessizlik Süresi (dakika):</label>
+    <input type="number" id="silence-duration" value="10" min="0">
 
-                if (soundId && duration > 0 && repeatCount > 0) {
-                    const recording = recordings.find(r => r.id == soundId);
+    <label>Toplam Tekrar Sayısı:</label>
+    <input type="number" id="repeat-count" value="3" min="1">
 
-                    if (recording) {
-                        playlist.push({
-                            type: 'sound',
-                            id: recording.id,
-                            name: recording.name,
-                            url: recording.url,
-                            duration,
-                            silenceDuration,
-                            repeatCount
-                        });
+    <button id="start-btn">Çalmayı Başlat</button>
+    <button id="stop-btn" style="background:#e74c3c;">Durdur</button>
 
-                        updatePlaylist();
-                    }
-                }
-            });
+    <div class="status" id="status">Hazır</div>
 
-            // Playlist'e sessizlik eklemek
-            addSilenceButton.addEventListener('click', () => {
-                const silenceDuration = parseInt(silenceDurationInput.value) * 60 * 1000;
+    <audio id="audio-player" controls></audio>
+  </div>
 
-                if (silenceDuration > 0) {
-                    playlist.push({
-                        type: 'silence',
-                        duration: silenceDuration
-                    });
+  <script>
+    const audioInput = document.getElementById('audio-file');
+    const playDurationInput = document.getElementById('play-duration');
+    const silenceDurationInput = document.getElementById('silence-duration');
+    const repeatCountInput = document.getElementById('repeat-count');
+    const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
+    const status = document.getElementById('status');
+    const audioPlayer = document.getElementById('audio-player');
 
-                    updatePlaylist();
-                }
-            });
+    let sequenceInterval = null;
+    let currentRepeat = 0;
+    let stopRequested = false;
 
-            // Playlist'i güncelleme
-            function updatePlaylist() {
-                playlistContainer.innerHTML = '';
+    let audioBlobUrl = '';
+    let audioDuration = 0;
 
-                playlist.forEach(item => {
-                    const listItem = document.createElement('div');
-                    listItem.className = 'audio-item';
+    audioInput.addEventListener('change', () => {
+      const file = audioInput.files[0];
+      if (file) {
+        audioBlobUrl = URL.createObjectURL(file);
+        audioPlayer.src = audioBlobUrl;
 
-                    if (item.type === 'sound') {
-                        listItem.textContent = `${item.name} - ${item.duration / 60000} dakika`;
-                    } else {
-                        listItem.textContent = `Sessizlik - ${item.duration / 60000} dakika`;
-                    }
-
-                    playlistContainer.appendChild(listItem);
-                });
-            }
-
-            // Çalma işlemi başlatma
-            startSequenceButton.addEventListener('click', () => {
-                if (playlist.length === 0) {
-                    return;
-                }
-
-                isPlaying = true;
-                currentAudioIndex = 0;
-                currentRepeatCount = 0;
-                playerStatus.textContent = 'Çalıyor...';
-                playerStatus.classList.remove('stopped');
-                playerStatus.classList.add('playing');
-                playNext();
-            });
-
-            // Çalma işlemi durdurma
-            stopSequenceButton.addEventListener('click', () => {
-                isPlaying = false;
-                playerStatus.textContent = 'Durduruldu';
-                playerStatus.classList.remove('playing');
-                playerStatus.classList.add('stopped');
-            });
-
-            // Bir sonraki öğeyi çalma
-            function playNext() {
-                if (!isPlaying || currentAudioIndex >= playlist.length) {
-                    return;
-                }
-
-                const currentItem = playlist[currentAudioIndex];
-
-                if (currentItem.type === 'sound') {
-                    const audio = new Audio(currentItem.url);
-                    audio.play();
-
-                    audio.onended = () => {
-                        // Ses bittiğinde sessizlik eklemek veya bir sonraki ses
-                        if (currentItem.silenceDuration > 0) {
-                            setTimeout(() => {
-                                currentAudioIndex++;
-                                playNext();
-                            }, currentItem.silenceDuration);
-                        } else {
-                            currentAudioIndex++;
-                            playNext();
-                        }
-                    };
-                } else if (currentItem.type === 'silence') {
-                    setTimeout(() => {
-                        currentAudioIndex++;
-                        playNext();
-                    }, currentItem.duration);
-                }
-            }
+        // Ses uzunluğunu al
+        const tempAudio = new Audio(audioBlobUrl);
+        tempAudio.addEventListener('loadedmetadata', () => {
+          audioDuration = tempAudio.duration;
         });
-    </script>
+      }
+    });
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function playRepeatedAudio(minutes) {
+      const targetTime = minutes * 60; // saniye
+      let playedTime = 0;
+
+      while (playedTime < targetTime && !stopRequested) {
+        const audio = new Audio(audioBlobUrl);
+        audio.play();
+        await new Promise(resolve => {
+          audio.onended = resolve;
+        });
+        playedTime += audioDuration;
+      }
+    }
+
+    async function startSequence() {
+      if (!audioBlobUrl) {
+        alert('Lütfen bir ses dosyası seçin.');
+        return;
+      }
+
+      const playMinutes = parseInt(playDurationInput.value);
+      const silenceMinutes = parseInt(silenceDurationInput.value);
+      const repeatTimes = parseInt(repeatCountInput.value);
+
+      stopRequested = false;
+      currentRepeat = 0;
+
+      status.textContent = "Çalma başlatıldı...";
+
+      for (let i = 0; i < repeatTimes; i++) {
+        if (stopRequested) break;
+
+        status.textContent = `Tekrar ${i + 1} - Ses çalınıyor...`;
+        await playRepeatedAudio(playMinutes);
+
+        if (silenceMinutes > 0 && i < repeatTimes - 1 && !stopRequested) {
+          status.textContent = `Tekrar ${i + 1} - Sessizlik (${silenceMinutes} dk)...`;
+          await sleep(silenceMinutes * 60 * 1000);
+        }
+      }
+
+      status.textContent = stopRequested ? "Durduruldu." : "Tamamlandı.";
+    }
+
+    startBtn.addEventListener('click', startSequence);
+
+    stopBtn.addEventListener('click', () => {
+      stopRequested = true;
+      status.textContent = "Durduruluyor...";
+    });
+  </script>
 </body>
 </html>
