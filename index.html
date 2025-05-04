@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuş Seslendirme Uygulaması</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .record-section, .playlist-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        button.record {
+            background-color: #e74c3c;
+        }
+        button.record:hover {
+            background-color: #c0392b;
+        }
+        button.play {
+            background-color: #2ecc71;
+        }
+        button.play:hover {
+            background-color: #27ae60;
+        }
+        .audio-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            margin: 0 5px;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .audio-label {
+            width: 100px;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .sequence-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        #playlist {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px dashed #ccc;
+            border-radius: 5px;
+        }
+        .delete-btn {
+            background-color: #e74c3c;
+            margin-left: 10px;
+        }
+        .status.playing {
+            background-color: #d5f5e3;
+            color: #27ae60;
+        }
+        .status.stopped {
+            background-color: #fadbd8;
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Kuş Seslendirme Uygulaması</h1>
+        
+        <div class="record-section">
+            <h2>Ses Kaydetme</h2>
+            <div class="controls">
+                <input type="text" id="recording-name" placeholder="Ses adı" value="Ses 1">
+                <button id="record" class="record">Kayıt Başlat (5 sn)</button>
+                <span id="recording-status"></span>
+            </div>
+            <div id="recordings-list"></div>
+        </div>
+        
+        <div class="playlist-section">
+            <h2>Çalma Listesi</h2>
+            <div id="playlist-controls">
+                <div class="sequence-item">
+                    <select id="sound-select">
+                        <option value="">Ses seçin</option>
+                    </select>
+                    <input type="number" id="duration" min="1" max="60" value="5" placeholder="Dk">
+                    <span>dakika</span>
+                    <button id="add-to-playlist">Listeye Ekle</button>
+                </div>
+                <div class="sequence-item">
+                    <span>Sessiz süre: </span>
+                    <input type="number" id="silence-duration" min="0" max="120" value="30" placeholder="Dk">
+                    <span>dakika</span>
+                    <button id="add-silence">Sessizlik Ekle</button>
+                </div>
+                <div class="sequence-item">
+                    <span>Toplam tekrar sayısı: </span>
+                    <input type="number" id="repeat-count" min="1" max="100" value="7">
+                    <button id="start-sequence" class="play">Çalmayı Başlat</button>
+                    <button id="stop-sequence">Durdur</button>
+                </div>
+            </div>
+            
+            <h3>Çalma Sırası:</h3>
+            <div id="playlist"></div>
+            
+            <div id="player-status" class="status stopped">Hazır</div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Global değişkenler
+            let mediaRecorder;
+            let audioChunks = [];
+            let recordings = [];
+            let playlist = [];
+            let isPlaying = false;
+            let currentAudioIndex = 0;
+            let repetitionCount = 0;
+            let currentAudio = null;
+            let silenceTimeout = null;
+            
+            // DOM elementleri
+            const recordButton = document.getElementById('record');
+            const recordingStatus = document.getElementById('recording-status');
+            const recordingName = document.getElementById('recording-name');
+            const recordingsList = document.getElementById('recordings-list');
+            const soundSelect = document.getElementById('sound-select');
+            const durationInput = document.getElementById('duration');
+            const silenceDurationInput = document.getElementById('silence-duration');
+            const repeatCountInput = document.getElementById('repeat-count');
+            const addToPlaylistButton = document.getElementById('add-to-playlist');
+            const addSilenceButton = document.getElementById('add-silence');
+            const startSequenceButton = document.getElementById('start-sequence');
+            const stopSequenceButton = document.getElementById('stop-sequence');
+            const playlistContainer = document.getElementById('playlist');
+            const playerStatus = document.getElementById('player-status');
+
+            // Kayıt fonksiyonları
+            recordButton.addEventListener('click', () => {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    return;
+                }
+                
+                navigator.mediaDevices.getUserMedia({ audio: true })
+                    .then(stream => {
+                        mediaRecorder = new MediaRecorder(stream);
+                        audioChunks = [];
+                        
+                        mediaRecorder.addEventListener('dataavailable', event => {
+                            audioChunks.push(event.data);
+                        });
+                        
+                        mediaRecorder.addEventListener('stop', () => {
+                            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                            const audioUrl = URL.createObjectURL(audioBlob);
+                            const name = recordingName.value || `Ses ${recordings.length + 1}`;
+                            
+                            recordings.push({
+                                id: Date.now(),
+                                name,
+                                url: audioUrl,
+                                blob: audioBlob
+                            });
+                            
+                            updateRecordingsList();
+                            updateSoundSelect();
+                            
+                            recordingStatus.textContent = 'Kayıt tamamlandı!';
+                            recordButton.disabled = false;
+                            
+                            // Sonraki kayıt için isim güncelleme
+                            recordingName.value = `Ses ${recordings.length + 1}`;
+                            
+                            // Stream'i kapatma
+                            stream.getTracks().forEach(track => track.stop());
+                        });
+                        
+                        // 5 saniyelik kayıt
+                        mediaRecorder.start();
+                        recordButton.disabled = true;
+                        recordingStatus.textContent = 'Kaydediliyor...';
+                        
+                        setTimeout(() => {
+                            if (mediaRecorder.state === 'recording') {
+                                mediaRecorder.stop();
+                            }
+                        }, 5000);
+                    })
+                    .catch(error => {
+                        console.error('Mikrofon erişimi hatası:', error);
+                        recordingStatus.textContent = 'Mikrofon erişimi reddedildi!';
+                    });
+            });
+            
+            // Kayıt listesini güncelleme
+            function updateRecordingsList() {
+                recordingsList.innerHTML = '';
+                
+                recordings.forEach(recording => {
+                    const audioItem = document.createElement('div');
+                    audioItem.className = 'audio-item';
+                    
+                    const audioLabel = document.createElement('div');
+                    audioLabel.className = 'audio-label';
+                    audioLabel.textContent = recording.name;
+                    
+                    const audio = document.createElement('audio');
+                    audio.controls = true;
+                    audio.src = recording.url;
+                    
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'delete-btn';
+                    deleteButton.textContent = 'Sil';
+                    deleteButton.addEventListener('click', () => {
+                        recordings = recordings.filter(r => r.id !== recording.id);
+                        updateRecordingsList();
+                        updateSoundSelect();
+                        
+                        // Çalma listesinden de kaldır
+                        playlist = playlist.filter(item => item.type !== 'sound' || item.id !== recording.id);
+                        updatePlaylist();
+                    });
+                    
+                    audioItem.appendChild(audioLabel);
+                    audioItem.appendChild(audio);
+                    audioItem.appendChild(deleteButton);
+                    recordingsList.appendChild(audioItem);
+                });
+            }
+            
+            // Ses seçimini güncelleme
+            function updateSoundSelect() {
+                soundSelect.innerHTML = '<option value="">Ses seçin</option>';
+                
+                recordings.forEach(recording => {
+                    const option = document.createElement('option');
+                    option.value = recording.id;
+                    option.textContent = recording.name;
+                    soundSelect.appendChild(option);
+                });
+            }
+            
+            // Çalma listesine ses ekleme
+            addToPlaylistButton.addEventListener('click', () => {
+                const selectedSoundId = soundSelect.value;
+                if (!selectedSoundId) {
+                    alert('Lütfen bir ses seçin!');
+                    return;
+                }
+                
+                const duration = parseInt(durationInput.value, 10);
+                if (isNaN(duration) || duration < 1) {
+                    alert('Geçerli bir süre girin!');
+                    return;
+                }
+                
+                const selectedSound = recordings.find(r => r.id.toString() === selectedSoundId);
+                
+                playlist.push({
+                    type: 'sound',
+                    id: selectedSound.id,
+                    name: selectedSound.name,
+                    url: selectedSound.url,
+                    durationMinutes: duration
+                });
+                
+                updatePlaylist();
+            });
+            
+            // Çalma listesine sessizlik ekleme
+            addSilenceButton.addEventListener('click', () => {
+                const duration = parseInt(silenceDurationInput.value, 10);
+                if (isNaN(duration) || duration < 1) {
+                    alert('Geçerli bir sessizlik süresi girin!');
+                    return;
+                }
+                
+                playlist.push({
+                    type: 'silence',
+                    durationMinutes: duration,
+                    name: `${duration} dk sessizlik`
+                });
+                
+                updatePlaylist();
+            });
+            
+            // Çalma listesini güncelleme
+            function updatePlaylist() {
+                playlistContainer.innerHTML = '';
+                
+                if (playlist.length === 0) {
+                    playlistContainer.innerHTML = '<p>Çalma listesi boş</p>';
+                    return;
+                }
+                
+                playlist.forEach((item, index) => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'sequence-item';
+                    
+                    let itemText = '';
+                    if (item.type === 'sound') {
+                        itemText = `${index + 1}. ${item.name} (${item.durationMinutes} dk)`;
+                    } else {
+                        itemText = `${index + 1}. ${item.name}`;
+                    }
+                    
+                    listItem.textContent = itemText;
+                    
+                    const removeButton = document.createElement('button');
+                    removeButton.className = 'delete-btn';
+                    removeButton.textContent = 'Kaldır';
+                    removeButton.addEventListener('click', () => {
+                        playlist.splice(index, 1);
+                        updatePlaylist();
+                    });
+                    
+                    const moveUpButton = document.createElement('button');
+                    moveUpButton.textContent = '↑';
+                    moveUpButton.disabled = index === 0;
+                    moveUpButton.addEventListener('click', () => {
+                        if (index > 0) {
+                            [playlist[index], playlist[index - 1]] = [playlist[index - 1], playlist[index]];
+                            updatePlaylist();
+                        }
+                    });
+                    
+                    const moveDownButton = document.createElement('button');
+                    moveDownButton.textContent = '↓';
+                    moveDownButton.disabled = index === playlist.length - 1;
+                    moveDownButton.addEventListener('click', () => {
+                        if (index < playlist.length - 1) {
+                            [playlist[index], playlist[index + 1]] = [playlist[index + 1], playlist[index]];
+                            updatePlaylist();
+                        }
+                    });
+                    
+                    listItem.appendChild(moveUpButton);
+                    listItem.appendChild(moveDownButton);
+                    listItem.appendChild(removeButton);
+                    playlistContainer.appendChild(listItem);
+                });
+            }
+            
+            // Sıralı çalma fonksiyonu
+            startSequenceButton.addEventListener('click', () => {
+                if (isPlaying) return;
+                
+                if (playlist.length === 0) {
+                    alert('Çalma listesi boş!');
+                    return;
+                }
+                
+                const repeatCount = parseInt(repeatCountInput.value, 10);
+                if (isNaN(repeatCount) || repeatCount < 1) {
+                    alert('Lütfen geçerli bir tekrar sayısı girin!');
+                    return;
+                }
+                
+                isPlaying = true;
+                currentAudioIndex = 0;
+                repetitionCount = 0;
+                
+                startSequenceButton.disabled = true;
+                stopSequenceButton.disabled = false;
+                playerStatus.className = 'status playing';
+                playerStatus.textContent = 'Çalınıyor...';
+                
+                playNextInSequence();
+            });
+            
+            // Çalmayı durdurma
+            stopSequenceButton.addEventListener('click', () => {
+                stopPlayback();
+            });
+            
+            // Çalma sırasındaki sonraki öğeyi çal
+            function playNextInSequence() {
+                if (!isPlaying) return;
+                
+                // Tüm listeyi tamamladık mı?
+                if (currentAudioIndex >= playlist.length) {
+                    repetitionCount++;
+                    
+                    // Tekrar sayısına ulaştık mı?
+                    if (repetitionCount >= parseInt(repeatCountInput.value, 10)) {
+                        stopPlayback();
+                        return;
+                    }
+                    
+                    // Yeni bir tekrar başlat
+                    currentAudioIndex = 0;
+                }
+                
+                const item = playlist[currentAudioIndex];
+                playerStatus.textContent = `Çalınıyor: ${item.name} (${repetitionCount + 1}. tekrar)`;
+                
+                if (item.type === 'sound') {
+                    const recording = recordings.find(r => r.id === item.id);
+                    if (!recording) {
+                        currentAudioIndex++;
+                        playNextInSequence();
+                        return;
+                    }
+                    
+                    // Ses çalma
+                    if (currentAudio) {
+                        currentAudio.pause();
+                        currentAudio = null;
+                    }
+                    
+                    currentAudio = new Audio(recording.url);
+                    
+                    // 5 saniyelik ses kaydını belirtilen dakika boyunca döngüye al
+                    const loopDuration = item.durationMinutes * 60 * 1000; // Milisaniye cinsinden
+                    const startTime = Date.now();
+                    
+                    function playSoundLoop() {
+                        if (!isPlaying) return;
+                        
+                        const elapsedTime = Date.now() - startTime;
+                        if (elapsedTime >= loopDuration) {
+                            // Süre doldu, sonraki öğeye geç
+                            currentAudioIndex++;
+                            playNextInSequence();
+                            return;
+                        }
+                        
+                        currentAudio.play();
+                        
+                        // 5 saniyelik ses bitince tekrar çal
+                        currentAudio.onended = () => {
+                            if (isPlaying) {
+                                playSoundLoop();
+                            }
+                        };
+                    }
+                    
+                    playSoundLoop();
+                } else if (item.type === 'silence') {
+                    // Sessizlik
+                    playerStatus.textContent = `Sessiz bekleniyor: ${item.durationMinutes} dk (${repetitionCount + 1}. tekrar)`;
+                    
+                    silenceTimeout = setTimeout(() => {
+                        currentAudioIndex++;
+                        playNextInSequence();
+                    }, it
