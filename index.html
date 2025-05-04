@@ -83,28 +83,31 @@
 </head>
 <body>
   <div class="container">
-    <h2>Kuş Sesleri Oynatıcı v3</h2>
+    <h2>Kuş Sesleri Oynatıcı</h2>
     <div class="section">
       <label>Ses Dosyası Yükle:</label>
       <input type="file" id="audio-file" accept="audio/*">
 
-      <!-- Ses Kaydet butonu dosya yükleme kısmına taşındı -->
-      <button id="record-btn">Ses Kaydet</button>
-
       <label>Çalma Süresi (dakika):</label>
-      <input type="number" id="play-duration" value="5" min="1">
+      <input type="number" id="play-duration" value="1" min="0.5" step="0.5">
 
       <label>Sessizlik Süresi (dakika):</label>
-      <input type="number" id="silence-duration" value="10" min="0">
+      <input type="number" id="silence-duration" value="1" min="0" step="0.5">
 
       <label>Toplam Tekrar Sayısı:</label>
-      <input type="number" id="repeat-count" value="3" min="1">
+      <input type="number" id="repeat-count" value="1" min="1">
 
       <button id="start-btn">Çalmayı Başlat</button>
       <button id="stop-btn">Durdur</button>
 
       <audio id="audio-player" controls></audio>
       <div class="status" id="status">Hazır</div>
+    </div>
+
+    <div class="section">
+      <label>Ses Kaydet:</label>
+      <button id="record-btn">Kayda Başla</button>
+      <div id="recording-status"></div>
     </div>
   </div>
 
@@ -118,12 +121,12 @@
     const status = document.getElementById('status');
     const audioPlayer = document.getElementById('audio-player');
     const recordBtn = document.getElementById('record-btn');
+    const recordingStatus = document.getElementById('recording-status');
 
     let audioBlobUrl = '';
     let audioDuration = 0;
     let stopRequested = false;
-    let isRecording = false;
-    let recorder;
+    let mediaRecorder;
     let audioChunks = [];
 
     audioInput.addEventListener('change', () => {
@@ -139,47 +142,10 @@
       }
     });
 
-    // Ses kaydı işlemi
-    recordBtn.addEventListener('click', async () => {
-      if (isRecording) {
-        // Kaydı bitir
-        recorder.stop();
-        status.textContent = 'Kaydediliyor...';
-        setTimeout(() => {
-          status.textContent = 'Kaydedildi';
-          isRecording = false;
-          recordBtn.textContent = 'Ses Kaydet';
-        }, 1000);
-      } else {
-        // Kayda başla
-        status.textContent = 'Kayda Başlandı...';
-        isRecording = true;
-        recordBtn.textContent = 'Kaydı Durdur';
-
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        recorder = new MediaRecorder(stream);
-        
-        recorder.ondataavailable = (e) => {
-          audioChunks.push(e.data);
-        };
-
-        recorder.onstop = () => {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-          audioBlobUrl = URL.createObjectURL(audioBlob);
-          audioPlayer.src = audioBlobUrl;
-          audioChunks = [];
-        };
-
-        recorder.start();
-      }
-    });
-
-    // Bekleme süresi
     function sleep(ms) {
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // Ses çalma fonksiyonu
     async function playRepeatedAudio(minutes) {
       const totalSeconds = minutes * 60;
       let playedSeconds = 0;
@@ -194,15 +160,14 @@
       }
     }
 
-    // Ses çalma işlemi başlatma
     async function startSequence() {
       if (!audioBlobUrl) {
-        alert('Lütfen bir ses dosyası seçin veya ses kaydedin.');
+        alert('Lütfen bir ses dosyası seçin.');
         return;
       }
 
-      const playMinutes = parseInt(playDurationInput.value);
-      const silenceMinutes = parseInt(silenceDurationInput.value);
+      const playMinutes = parseFloat(playDurationInput.value);
+      const silenceMinutes = parseFloat(silenceDurationInput.value);
       const repeatTimes = parseInt(repeatCountInput.value);
 
       stopRequested = false;
@@ -223,17 +188,50 @@
       status.textContent = stopRequested ? "Durduruldu." : "Tamamlandı.";
     }
 
-    // Başlatma ve durdurma butonlarına işlev ekleme
     startBtn.addEventListener('click', startSequence);
     stopBtn.addEventListener('click', () => {
       stopRequested = true;
       status.textContent = "Durduruluyor...";
     });
 
-    // Safari ve Chrome kısıtlamalarını aşmak için ses çalmadan önce kullanıcı etkileşimi gereklidir
-    document.body.addEventListener('click', function() {
-      audioPlayer.play();
+    // Ses kaydetme
+    let isRecording = false;
+
+    recordBtn.addEventListener('click', () => {
+      if (!isRecording) {
+        startRecording();
+      } else {
+        stopRecording();
+      }
     });
+
+    function startRecording() {
+      recordingStatus.textContent = "Kaydediliyor...";
+      isRecording = true;
+
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+          };
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            audioBlobUrl = URL.createObjectURL(audioBlob);
+            audioPlayer.src = audioBlobUrl;
+            audioDuration = audioBlob.size / 1000; // Approximate size-based duration calculation
+            recordingStatus.textContent = "Kaydedildi.";
+            audioChunks = [];
+          };
+          mediaRecorder.start();
+        });
+    }
+
+    function stopRecording() {
+      mediaRecorder.stop();
+      isRecording = false;
+      recordingStatus.textContent = "Kaydedildi.";
+    }
   </script>
 </body>
 </html>
