@@ -1,117 +1,331 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Stroboskop</title>
-  <style>
-    body {
-      background: #121212;
-      color: white;
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
-
-    h1 {
-      margin-bottom: 20px;
-    }
-
-    input {
-      padding: 10px;
-      font-size: 18px;
-      width: 100px;
-      text-align: center;
-      border-radius: 5px;
-      border: none;
-      margin-bottom: 10px;
-    }
-
-    button {
-      background-color: #00bfa6;
-      color: white;
-      border: none;
-      padding: 15px 25px;
-      font-size: 18px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin: 10px;
-    }
-
-    button:hover {
-      background-color: #008e7a;
-    }
-
-    #bpm {
-      font-size: 16px;
-      margin-bottom: 20px;
-      color: #ccc;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flaş Tabanlı RPM/Hz Stroboskop</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .status-area {
+            width: 100%;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+        .control-group {
+            flex: 1;
+            min-width: 250px;
+            margin: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button.stop {
+            background-color: #f44336;
+        }
+        button.stop:hover {
+            background-color: #d32f2f;
+        }
+        .slider-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            margin: 10px 0;
+        }
+        .slider-container label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        .value-display {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .rpmdisplay, .hzdisplay {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            padding: 10px;
+            background-color: #e9e9e9;
+            border-radius: 5px;
+            width: 45%;
+            text-align: center;
+        }
+        #infoText {
+            color: #444;
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #fffde7;
+        }
+        .hidden {
+            display: none;
+        }
+        video {
+            width: 1px;
+            height: 1px;
+            position: absolute;
+            top: -9999px;
+            left: -9999px;
+        }
+    </style>
 </head>
 <body>
-  <h1>Stroboskop</h1>
+    <div class="container">
+        <h1>Flaş Tabanlı RPM/Hz Stroboskop</h1>
+        
+        <div class="status-area" id="statusArea">Flaş erişimi bekleniyor...</div>
+        
+        <div class="control-panel">
+            <div class="controls">
+                <div class="control-group">
+                    <div class="slider-container">
+                        <label for="rpmRange">RPM Ayarı (250-3500):</label>
+                        <input type="range" min="250" max="3500" value="1000" class="slider" id="rpmRange">
+                    </div>
+                    <div class="slider-container">
+                        <label for="fineAdjust">İnce Ayar:</label>
+                        <input type="range" min="-50" max="50" value="0" class="slider" id="fineAdjust">
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <div class="value-display">
+                        <div class="rpmdisplay">
+                            <div>RPM:</div>
+                            <div id="rpmValue">1000</div>
+                        </div>
+                        <div class="hzdisplay">
+                            <div>Hz:</div>
+                            <div id="hzValue">16.67</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <button id="accessButton">Flaş Erişimi İste</button>
+                <button id="startButton" disabled>Başlat</button>
+                <button id="stopButton" class="stop" disabled>Durdur</button>
+            </div>
+        </div>
+        
+        <div id="infoText">
+            Not: Bu uygulama cihazınızın kamera flaşına erişim gerektirir. Sadece mobil cihazlarda ve destekleyen tarayıcılarda çalışır. Uygulamayı kullanmak için erişim izni vermeniz gerekecektir.
+        </div>
+    </div>
 
-  <input type="number" id="hz" min="1" max="50" value="25">
-  <div id="bpm">Devir: 1500 / dk</div>
+    <video id="video" autoplay muted class="hidden"></video>
 
-  <button id="startBtn">Başlat</button>
-  <button id="stopBtn">Durdur</button>
+    <script>
+        // DOM Elements
+        const statusArea = document.getElementById('statusArea');
+        const rpmRange = document.getElementById('rpmRange');
+        const fineAdjust = document.getElementById('fineAdjust');
+        const rpmValue = document.getElementById('rpmValue');
+        const hzValue = document.getElementById('hzValue');
+        const accessButton = document.getElementById('accessButton');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const video = document.getElementById('video');
 
-  <script>
-    let track;
-    let intervalId;
-    let torchOn = false;
+        // Variables for flash control
+        let stream = null;
+        let track = null;
+        let isFlashing = false;
+        let flashInterval = null;
+        let capabilities = null;
+        let hasFlashSupport = false;
 
-    const hzInput = document.getElementById('hz');
-    const bpmDisplay = document.getElementById('bpm');
+        // Event listeners
+        rpmRange.addEventListener('input', updateDisplayValues);
+        fineAdjust.addEventListener('input', updateDisplayValues);
+        accessButton.addEventListener('click', requestCameraAccess);
+        startButton.addEventListener('click', startFlashing);
+        stopButton.addEventListener('click', stopFlashing);
 
-    hzInput.addEventListener('input', () => {
-      const hz = parseFloat(hzInput.value);
-      const bpm = Math.round(hz * 60);
-      bpmDisplay.textContent = `Devir: ${bpm} / dk`;
-    });
+        // Initial values
+        updateDisplayValues();
 
-    async function setupCamera() {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
-      });
-      track = stream.getVideoTracks()[0];
-    }
+        // Check if the browser supports the camera API
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            statusArea.textContent = "Bu tarayıcı kamera API'sini desteklemiyor!";
+            statusArea.style.backgroundColor = "#ffcdd2";
+            accessButton.disabled = true;
+        }
 
-    async function toggleTorch(state) {
-      if (!track) return;
-      try {
-        await track.applyConstraints({ advanced: [{ torch: state }] });
-      } catch (e) {
-        console.error("Torch kontrolü başarısız:", e);
-      }
-    }
+        async function requestCameraAccess() {
+            try {
+                statusArea.textContent = "Kamera erişimi isteniyor...";
+                
+                // Request access to the camera
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }
+                });
+                
+                // Attach the stream to the video element (not shown but necessary)
+                video.srcObject = stream;
+                
+                // Get the video track
+                track = stream.getVideoTracks()[0];
+                
+                // Check if the device has a torch/flash
+                capabilities = track.getCapabilities();
+                
+                if (capabilities.torch) {
+                    hasFlashSupport = true;
+                    statusArea.textContent = "Flaş hazır! Başlatmak için 'Başlat' butonuna tıklayın.";
+                    statusArea.style.backgroundColor = "#c8e6c9";
+                    accessButton.disabled = true;
+                    startButton.disabled = false;
+                    stopButton.disabled = false;
+                } else {
+                    statusArea.textContent = "Bu cihazda flaş bulunmuyor veya erişilemedi!";
+                    statusArea.style.backgroundColor = "#ffcdd2";
+                }
+            } catch (error) {
+                console.error("Kamera erişimi hatası:", error);
+                statusArea.textContent = "Kamera erişimi reddedildi veya bir hata oluştu!";
+                statusArea.style.backgroundColor = "#ffcdd2";
+            }
+        }
 
-    document.getElementById('startBtn').addEventListener('click', async () => {
-      const hz = parseFloat(hzInput.value);
-      const delay = 1000 / hz;
+        function updateDisplayValues() {
+            const baseRpm = parseInt(rpmRange.value);
+            const adjustment = parseInt(fineAdjust.value);
+            const finalRpm = baseRpm + adjustment;
+            
+            // Ensure RPM stays within allowed range
+            const validRpm = Math.max(250, Math.min(3500, finalRpm));
+            
+            const frequencyHz = validRpm / 60;
+            
+            rpmValue.textContent = validRpm.toFixed(0);
+            hzValue.textContent = frequencyHz.toFixed(2);
+            
+            // If already flashing, update the flash rate
+            if (isFlashing) {
+                updateFlashRate();
+            }
+        }
 
-      if (!track) await setupCamera();
+        function startFlashing() {
+            if (isFlashing || !hasFlashSupport) return;
+            
+            isFlashing = true;
+            statusArea.textContent = "Flaş stroboskop aktif";
+            startButton.disabled = true;
+            stopButton.disabled = false;
+            
+            updateFlashRate();
+        }
 
-      clearInterval(intervalId); // tekrar başlatıldığında öncekini temizle
-      intervalId = setInterval(() => {
-        torchOn = !torchOn;
-        toggleTorch(torchOn);
-      }, delay);
-    });
+        function updateFlashRate() {
+            // Clear existing interval if any
+            if (flashInterval) {
+                clearInterval(flashInterval);
+            }
+            
+            const rpm = parseFloat(rpmValue.textContent);
+            const intervalMs = (60 / rpm) * 1000;
+            
+            // Set flash duration to be 1/5 of the interval but not less than 10ms
+            const flashDuration = Math.max(10, intervalMs / 5);
+            
+            flashInterval = setInterval(() => {
+                // Turn flash on
+                track.applyConstraints({
+                    advanced: [{ torch: true }]
+                });
+                
+                setTimeout(() => {
+                    // Turn flash off
+                    track.applyConstraints({
+                        advanced: [{ torch: false }]
+                    });
+                }, flashDuration);
+                
+            }, intervalMs);
+        }
 
-    document.getElementById('stopBtn').addEventListener('click', async () => {
-      clearInterval(intervalId);
-      torchOn = false;
-      await toggleTorch(false); // flaşı kesin olarak kapat
-      if (track) track.stop();
-      track = null;
-    });
-  </script>
+        function stopFlashing() {
+            if (!isFlashing) return;
+            
+            isFlashing = false;
+            
+            if (flashInterval) {
+                clearInterval(flashInterval);
+                flashInterval = null;
+            }
+            
+            // Ensure flash is off
+            if (track) {
+                track.applyConstraints({
+                    advanced: [{ torch: false }]
+                });
+            }
+            
+            statusArea.textContent = "Flaş durduruldu";
+            startButton.disabled = false;
+            stopButton.disabled = false;
+        }
+
+        // Clean up when the page is closed or navigated away from
+        window.addEventListener('beforeunload', () => {
+            stopFlashing();
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
 </body>
 </html>
