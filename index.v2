@@ -1,0 +1,27 @@
+<button onclick="turnOnFlash()">Flaş Aç</button>
+<button onclick="turnOffFlash()">Flaş Kapat</button>
+
+<script>
+let track;
+
+async function turnOnFlash() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment", torch: true }
+  });
+
+  track = stream.getVideoTracks()[0];
+
+  const imageCapture = new ImageCapture(track);
+  const capabilities = await imageCapture.getPhotoCapabilities();
+
+  if (capabilities.torch) {
+    track.applyConstraints({ advanced: [{ torch: true }] });
+  } else {
+    alert("Bu cihaz torch özelliğini desteklemiyor.");
+  }
+}
+
+function turnOffFlash() {
+  if (track) track.stop();
+}
+</script>
