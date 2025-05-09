@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flaş Tabanlı RPM/Hz Stroboskop</title>
+    <title>Flaş Tabanlı RPM/Hz Stroboskop v1</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -182,9 +182,9 @@
         let stream = null;
         let track = null;
         let isFlashing = false;
-        let flashInterval = null;
-        let capabilities = null;
+        let flashTimeout = null;
         let hasFlashSupport = false;
+        let flashState = false;
 
         // Event listeners
         rpmRange.addEventListener('input', updateDisplayValues);
@@ -219,7 +219,7 @@
                 track = stream.getVideoTracks()[0];
                 
                 // Check if the device has a torch/flash
-                capabilities = track.getCapabilities();
+                const capabilities = track.getCapabilities();
                 
                 if (capabilities.torch) {
                     hasFlashSupport = true;
@@ -254,7 +254,8 @@
             
             // If already flashing, update the flash rate
             if (isFlashing) {
-                updateFlashRate();
+                stopFlashing();
+                startFlashing();
             }
         }
 
@@ -266,35 +267,40 @@
             startButton.disabled = true;
             stopButton.disabled = false;
             
-            updateFlashRate();
+            // Start the flash cycle
+            flashCycle();
         }
 
-        function updateFlashRate() {
-            // Clear existing interval if any
-            if (flashInterval) {
-                clearInterval(flashInterval);
-            }
+        function flashCycle() {
+            if (!isFlashing) return;
             
             const rpm = parseFloat(rpmValue.textContent);
             const intervalMs = (60 / rpm) * 1000;
             
-            // Set flash duration to be 1/5 of the interval but not less than 10ms
-            const flashDuration = Math.max(10, intervalMs / 5);
+            // Calculate flash duration - shorter flash for better visibility
+            // We'll use 10% of the interval, but not less than 10ms or more than 50ms
+            const flashDuration = Math.max(10, Math.min(50, intervalMs * 0.1));
             
-            flashInterval = setInterval(() => {
-                // Turn flash on
+            // Toggle flash state
+            flashState = !flashState;
+            
+            // Apply the new flash state
+            try {
                 track.applyConstraints({
-                    advanced: [{ torch: true }]
+                    advanced: [{ torch: flashState }]
                 });
-                
-                setTimeout(() => {
-                    // Turn flash off
-                    track.applyConstraints({
-                        advanced: [{ torch: false }]
-                    });
-                }, flashDuration);
-                
-            }, intervalMs);
+            } catch (error) {
+                console.error("Flaş kontrol hatası:", error);
+                stopFlashing();
+                statusArea.textContent = "Flaş kontrolünde hata oluştu!";
+                statusArea.style.backgroundColor = "#ffcdd2";
+                return;
+            }
+            
+            // Schedule the next toggle after the appropriate duration
+            const nextInterval = flashState ? flashDuration : (intervalMs - flashDuration);
+            
+            flashTimeout = setTimeout(flashCycle, nextInterval);
         }
 
         function stopFlashing() {
@@ -302,16 +308,21 @@
             
             isFlashing = false;
             
-            if (flashInterval) {
-                clearInterval(flashInterval);
-                flashInterval = null;
+            if (flashTimeout) {
+                clearTimeout(flashTimeout);
+                flashTimeout = null;
             }
             
             // Ensure flash is off
             if (track) {
-                track.applyConstraints({
-                    advanced: [{ torch: false }]
-                });
+                try {
+                    track.applyConstraints({
+                        advanced: [{ torch: false }]
+                    });
+                    flashState = false;
+                } catch (error) {
+                    console.error("Flaş kapatma hatası:", error);
+                }
             }
             
             statusArea.textContent = "Flaş durduruldu";
