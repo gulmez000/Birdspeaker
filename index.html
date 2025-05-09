@@ -1,1 +1,117 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stroboskop</title>
+  <style>
+    body {
+      background: #121212;
+      color: white;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
 
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    input {
+      padding: 10px;
+      font-size: 18px;
+      width: 100px;
+      text-align: center;
+      border-radius: 5px;
+      border: none;
+      margin-bottom: 10px;
+    }
+
+    button {
+      background-color: #00bfa6;
+      color: white;
+      border: none;
+      padding: 15px 25px;
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 10px;
+    }
+
+    button:hover {
+      background-color: #008e7a;
+    }
+
+    #bpm {
+      font-size: 16px;
+      margin-bottom: 20px;
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <h1>Stroboskop</h1>
+
+  <input type="number" id="hz" min="1" max="50" value="25">
+  <div id="bpm">Devir: 1500 / dk</div>
+
+  <button id="startBtn">Başlat</button>
+  <button id="stopBtn">Durdur</button>
+
+  <script>
+    let track;
+    let intervalId;
+    let torchOn = false;
+
+    const hzInput = document.getElementById('hz');
+    const bpmDisplay = document.getElementById('bpm');
+
+    hzInput.addEventListener('input', () => {
+      const hz = parseFloat(hzInput.value);
+      const bpm = Math.round(hz * 60);
+      bpmDisplay.textContent = `Devir: ${bpm} / dk`;
+    });
+
+    async function setupCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
+      });
+      track = stream.getVideoTracks()[0];
+    }
+
+    async function toggleTorch(state) {
+      if (!track) return;
+      try {
+        await track.applyConstraints({ advanced: [{ torch: state }] });
+      } catch (e) {
+        console.error("Torch kontrolü başarısız:", e);
+      }
+    }
+
+    document.getElementById('startBtn').addEventListener('click', async () => {
+      const hz = parseFloat(hzInput.value);
+      const delay = 1000 / hz;
+
+      if (!track) await setupCamera();
+
+      clearInterval(intervalId); // tekrar başlatıldığında öncekini temizle
+      intervalId = setInterval(() => {
+        torchOn = !torchOn;
+        toggleTorch(torchOn);
+      }, delay);
+    });
+
+    document.getElementById('stopBtn').addEventListener('click', async () => {
+      clearInterval(intervalId);
+      torchOn = false;
+      await toggleTorch(false); // flaşı kesin olarak kapat
+      if (track) track.stop();
+      track = null;
+    });
+  </script>
+</body>
+</html>
