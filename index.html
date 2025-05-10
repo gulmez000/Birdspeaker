@@ -86,12 +86,20 @@
         
         <div class="status-area" id="statusArea">Flaş erişimi bekleniyor...</div>
         
-        <div class="info-display">
-            <div>Frekans: 5 Hz</div>
-            <div>Hız: 300 RPM</div>
-            <div>Flaş: 100ms açık, 100ms kapalı</div>
+        <div class="info-display" id="rpmDisplay">
+            <div id="frequency">Frekans: 5 Hz</div>
+            <div id="speed">Hız: 300 RPM</div>
         </div>
-        
+
+        <div>
+            <button onclick="multiplyRPM()">X2</button>
+            <button onclick="divideRPM()">÷2</button>
+        </div>
+        <div>
+            <button onclick="increaseRPM()">+1</button>
+            <button onclick="decreaseRPM()">-1</button>
+        </div>
+
         <div>
             <button id="accessButton">Flaş Erişimi İste</button>
             <button id="startButton" disabled>Başlat</button>
@@ -102,26 +110,53 @@
     <video id="video" autoplay muted class="hidden"></video>
 
     <script>
-        // DOM Elements
         const statusArea = document.getElementById('statusArea');
         const accessButton = document.getElementById('accessButton');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const video = document.getElementById('video');
 
-        // Variables for flash control
         let stream = null;
         let track = null;
         let isFlashing = false;
         let flashIntervalId = null;
         let hasFlashSupport = false;
 
-        // Event listeners
+        // RPM kontrol değişkenleri
+        let currentRPM = 300;
+
+        function updateDisplay() {
+            const hz = (currentRPM / 60).toFixed(2);
+            document.getElementById("frequency").textContent = `Frekans: ${hz} Hz`;
+            document.getElementById("speed").textContent = `Hız: ${currentRPM} RPM`;
+        }
+
+        function multiplyRPM() {
+            currentRPM *= 2;
+            updateDisplay();
+        }
+
+        function divideRPM() {
+            currentRPM = Math.max(1, Math.floor(currentRPM / 2));
+            updateDisplay();
+        }
+
+        function increaseRPM() {
+            currentRPM += 1;
+            updateDisplay();
+        }
+
+        function decreaseRPM() {
+            currentRPM = Math.max(1, currentRPM - 1);
+            updateDisplay();
+        }
+
+        updateDisplay();
+
         accessButton.addEventListener('click', requestCameraAccess);
         startButton.addEventListener('click', startFlashing);
         stopButton.addEventListener('click', stopFlashing);
 
-        // Check if the browser supports the camera API
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
             statusArea.textContent = "Bu tarayıcı kamera API'sini desteklemiyor!";
             statusArea.style.backgroundColor = "#ffcdd2";
@@ -131,21 +166,13 @@
         async function requestCameraAccess() {
             try {
                 statusArea.textContent = "Kamera erişimi isteniyor...";
-                
-                // Request access to the camera with rear camera preference
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: "environment" }
                 });
-                
-                // Attach the stream to the video element (required but hidden)
                 video.srcObject = stream;
-                
-                // Get the video track
                 track = stream.getVideoTracks()[0];
-                
-                // Check if the device has a torch/flash
+
                 const capabilities = track.getCapabilities();
-                
                 if (capabilities.torch) {
                     hasFlashSupport = true;
                     statusArea.textContent = "Flaş hazır! Başlatmak için 'Başlat' butonuna tıklayın.";
@@ -166,69 +193,57 @@
 
         function startFlashing() {
             if (isFlashing || !hasFlashSupport) return;
-            
             isFlashing = true;
-            statusArea.textContent = "Flaş stroboskop aktif - 5Hz (300 RPM)";
+            statusArea.textContent = `Flaş stroboskop aktif - ${(currentRPM / 60).toFixed(2)}Hz (${currentRPM} RPM)`;
             startButton.disabled = true;
             stopButton.disabled = false;
-            
-            // Simple flash pattern: 100ms on, 100ms off (5Hz)
+
             let flashOn = true;
-            
-            // Start with flash on
+
             try {
-                track.applyConstraints({
-                    advanced: [{ torch: true }]
-                });
+                track.applyConstraints({ advanced: [{ torch: true }] });
             } catch (error) {
                 console.error("Flaş açma hatası:", error);
                 stopFlashing();
                 return;
             }
-            
+
+            const interval = 60000 / (currentRPM * 2); // open and close cycle
             flashIntervalId = setInterval(() => {
                 flashOn = !flashOn;
-                
                 try {
-                    track.applyConstraints({
-                        advanced: [{ torch: flashOn }]
-                    });
+                    track.applyConstraints({ advanced: [{ torch: flashOn }] });
                 } catch (error) {
                     console.error("Flaş kontrol hatası:", error);
                     stopFlashing();
                     statusArea.textContent = "Flaş kontrolünde hata oluştu!";
                     statusArea.style.backgroundColor = "#ffcdd2";
                 }
-            }, 100); // 100ms interval for 5Hz (5 flash cycles per second)
+            }, interval);
         }
 
         function stopFlashing() {
             if (!isFlashing) return;
-            
             isFlashing = false;
-            
+
             if (flashIntervalId) {
                 clearInterval(flashIntervalId);
                 flashIntervalId = null;
             }
-            
-            // Ensure flash is off
+
             if (track) {
                 try {
-                    track.applyConstraints({
-                        advanced: [{ torch: false }]
-                    });
+                    track.applyConstraints({ advanced: [{ torch: false }] });
                 } catch (error) {
                     console.error("Flaş kapatma hatası:", error);
                 }
             }
-            
+
             statusArea.textContent = "Flaş durduruldu";
             startButton.disabled = false;
             stopButton.disabled = false;
         }
 
-        // Clean up when the page is closed or navigated away from
         window.addEventListener('beforeunload', () => {
             stopFlashing();
             if (stream) {
